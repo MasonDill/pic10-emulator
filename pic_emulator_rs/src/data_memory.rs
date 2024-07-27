@@ -21,7 +21,6 @@ impl Register {
     }
 }
 
-
 pub enum SpecialPurposeRegisters {
     INDF = 0x00, //Indirect reference
     TMR0, //Timer: 8-bit RTC

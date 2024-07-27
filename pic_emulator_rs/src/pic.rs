@@ -1,7 +1,6 @@
-use crate::{nbitnumber::{
-    u12, u9, u5, u3, u2,
-    NumberOperations, NBitNumber
-}, data_memory::RegisterFile, program_memory::ProgramMemory, data_memory::SpecialPurposeRegisters, instructions::*};
+use crate::{data_memory::{RegisterFile, SpecialPurposeRegisters}, instructions::*, nbitnumber::{
+    u12, u2, u3, u5, u9, NBitNumber, NumberOperations
+}, program_memory::{ProgramMemory, RESET_VECTOR}};
 
 #[derive(Clone, Copy)]
 
@@ -10,8 +9,9 @@ pub struct PIC10F200 {
     pub data_memory : RegisterFile,
     pub program_memory : ProgramMemory,
     pub program_counter : u9,
-    pub current_instruction : PICInstruction,
+    pub instruction_register : PICInstruction,
     pub w_register : u8,
+    pub io_pins : [bool; 3]
 }
 
 pub enum PIC10F2Types {
@@ -38,7 +38,6 @@ pub enum PICInstructionMnemonic {
     MOVF, COMF, INCF, DECFSZ, 
     RRF, RLF, SWAPF, INCFSZ, 
 
-
     // Bit Operation
     BCF, BSF, BTFSC, BTFSS,
 
@@ -55,7 +54,6 @@ pub enum PICInstructionMnemonic {
 trait Programmable {
     fn program_chip(&mut self, new_program: [u12; 0x200]);
 }
-
 impl Programmable for PIC10F200 {
     fn program_chip(&mut self, new_program: [u12; 0x200]) {
         self.program_memory.flash(new_program);
@@ -63,15 +61,23 @@ impl Programmable for PIC10F200 {
     }
 }
 
-trait TuringMachine {
+trait PipelinedTuringMachine {
     fn power_on_initialize(&mut self);
     fn fetch(&mut self);
     fn execute(&mut self);
     fn tick(&mut self);
     fn decode_mnemonic(&mut self);
 }
+impl PipelinedTuringMachine for PIC10F200 {
+    /*
+    Instruction Flow Summary
 
-impl TuringMachine for PIC10F200 {
+    An Instruction Cycle consists of four Q Cycles (Q1, Q2, Q3, Q4) - 4x Quadrature Clock dividing OSC1 increasing in phase by 90 degrees
+    The PIC10F200 has a 4MHz internal clock -> 250nS per Q cycle, 1uS per instruction cycle
+    Two stage pipeline, both stages take one instruction cycle
+    -> two instruction cycles for an instruction to traverse the pipeline, one instruction completes every instruction cycle (except the first instruction cycle)
+    Fetch in Q1, Read data in Q2, Decode & Execute Q2-4, Write data in Q4
+     */
     fn power_on_initialize(&mut self) {
         //data sheet page 18
         self.data_memory.write(u5::new(SpecialPurposeRegisters::PCL as u16), 0xFF);
@@ -82,21 +88,25 @@ impl TuringMachine for PIC10F200 {
     }
 
     fn tick(&mut self) {
-        //One instruction cycle consists of four clock cycles
-        //Internal clock is 4MHz, so one instruction cycle is 1us
-        //4 MHz is max clock speed for this chip
-        //Execute first, per the pipeline flow
-        self.execute(); //the first cycle should skip execution, AKA when PCL == RESET_VECTOR
         self.fetch();
+
+        if (self.program_counter) == RESET_VECTOR {
+            //the first cycle should skip execution stage, AKA when PCL == RESET_VECTOR
+            return;
+        }
+
+        self.execute(); 
     }
 
     fn fetch(&mut self) {
-        //Read the program counter
-        let PCL = self.data_memory.read(u5::new(SpecialPurposeRegisters::PCL as u16));
-        self.program_counter = u9::new(PCL as u16); //translate PC to u9 (we might want to sign extend it for off chip memory
+        //The PC is incremented by 1 & the instruction is placed into the instruction register every Q1 cycle
+        //if not Q1 cycle, then return
 
-        
-        self.current_instruction = PICInstruction::from_u12(self.program_memory.fetch(self.program_counter));
+        let PCL = self.data_memory.read(u5::new(SpecialPurposeRegisters::PCL as u16));
+        self.program_counter = u9::new(PCL as u16);
+
+        //Fetch the instruction from the program memory
+        self.instruction_register = PICInstruction::from_u12(self.program_memory.fetch(self.program_counter));
     }
 
     fn execute(&mut self) {
@@ -104,11 +114,12 @@ impl TuringMachine for PIC10F200 {
         self.decode_mnemonic();
     }
 
+    // decoded during Q2
     fn decode_mnemonic(&mut self)
     {
-        match self.current_instruction.instruction_category {
+        match self.instruction_register.instruction_category {
             PICInstructionType::ALUOperation => {
-                match (self.current_instruction.instruction_raw.as_u16() & 0x3C0) >> 6 {
+                match (self.instruction_register.instruction_raw.as_u16() & 0x3C0) >> 6 {
                     //4 bit opcode 9 downto 6, right shifted by 6
                     0x000 => MOVWF(self),
                     0x001 => CLR(self),
@@ -130,7 +141,7 @@ impl TuringMachine for PIC10F200 {
                 }
             }
             PICInstructionType::BitOperation => {
-                match self.current_instruction.instruction_raw.as_u16() & (0x300) {
+                match self.instruction_register.instruction_raw.as_u16() & (0x300) {
                     //2 bit op code bits 9 & 8
                     0x000 => BCF(self),
                     0x100 => BSF(self),
@@ -140,7 +151,7 @@ impl TuringMachine for PIC10F200 {
                 }
             }
             PICInstructionType::ControlTransfer => {
-                match self.current_instruction.instruction_raw.as_u16() & (0x300) {
+                match self.instruction_register.instruction_raw.as_u16() & (0x300) {
                     //2 bit opcode bits 9 & 8
                     0x000 => RETLW(self),
                     0x100 => CALL(self),
@@ -150,7 +161,7 @@ impl TuringMachine for PIC10F200 {
             }
             PICInstructionType::Miscellaneous => {
                 //5 bit opcode 4 downto 0
-                match self.current_instruction.instruction_raw.as_u16() & (0x01F) {
+                match self.instruction_register.instruction_raw.as_u16() & (0x01F) {
                     0x000 => NOP(self),
                     0x002 => OPTION(self),
                     0x003 => SLEEP(self),
@@ -160,7 +171,7 @@ impl TuringMachine for PIC10F200 {
                 }
             }
             PICInstructionType::OperationsWithW => {
-                match self.current_instruction.instruction_raw.as_u16() & (0x300) {
+                match self.instruction_register.instruction_raw.as_u16() & (0x300) {
                     //2 bit opcode 9 & 8
                     0x000 => MOVLW(self),
                     0x100 => IORLW(self),
@@ -179,8 +190,6 @@ pub struct PICInstruction  {
     //instruction: Option<PICMnemonic>,
     pub instruction_category: PICInstructionType,
 }
-
-
 impl PICInstruction {
     pub fn from_u12(instruction: u12) -> PICInstruction {
        PICInstruction {
@@ -236,4 +245,3 @@ impl PICInstruction {
     }
 
 }
-

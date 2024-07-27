@@ -2,7 +2,7 @@ use crate::nbitnumber::{u12, u9, NumberOperations, NBitNumber};
 use crate::data_memory::Status_Masks;
 use crate::pic::PIC10F200;
 
-
+// All instruction are single cycle except for branches (which are two cycle)
 
 pub fn HALT(pic: &mut PIC10F200)  {
     todo!()
@@ -44,11 +44,11 @@ pub fn TRIS(pic: &mut PIC10F200)  {
 
 fn store_wf(pic: &mut PIC10F200, result: u8){
     //if d is '0' store result in W, if d is '1' store result in f
-    let d = pic.current_instruction.extract_d();
+    let d = pic.instruction_register.extract_d();
     if d.as_u16() == 1{
         pic.w_register = result;
     } else {
-        pic.data_memory.write(pic.current_instruction.extract_f(), result);
+        pic.data_memory.write(pic.instruction_register.extract_f(), result);
     }
 }
 
@@ -66,13 +66,13 @@ fn update_DC() {
 }
 
 fn get_f_value(pic: &mut PIC10F200) -> u8 {
-    let f = pic.current_instruction.extract_f();
+    let f = pic.instruction_register.extract_f();
     return pic.data_memory.read(f)
 }
 
 pub fn MOVWF(pic: &mut PIC10F200)  {
     // f <- W, only ALU OP that does not have d bit
-    let f = pic.current_instruction.extract_f();
+    let f = pic.instruction_register.extract_f();
     let w = pic.w_register;
 
     pic.data_memory.write(f, w);
@@ -194,7 +194,7 @@ pub fn INCFSZ(pic: &mut PIC10F200)  {
 
 pub fn BCF(pic: &mut PIC10F200)  {
     // clear bit b in register f
-    let instruction = pic.current_instruction;
+    let instruction = pic.instruction_register;
     let f = instruction.extract_f();
     let b = instruction.extract_b();
     let f_value = pic.data_memory.read(f);
@@ -205,7 +205,7 @@ pub fn BCF(pic: &mut PIC10F200)  {
 
 pub fn BSF(pic: &mut PIC10F200)  {
     // set bit b in register f
-    let instruction = pic.current_instruction;
+    let instruction = pic.instruction_register;
     let f = instruction.extract_f();
     let b = instruction.extract_b();
     let f_value = pic.data_memory.read(f);
@@ -216,7 +216,7 @@ pub fn BSF(pic: &mut PIC10F200)  {
 
 pub fn BTFSC(pic: &mut PIC10F200)  {
     // skip next instruction if bit b in register f is clear
-    let instruction = pic.current_instruction;
+    let instruction = pic.instruction_register;
     let f = instruction.extract_f();
     let b = instruction.extract_b();
     let f_value = pic.data_memory.read(f);
@@ -230,7 +230,7 @@ pub fn BTFSC(pic: &mut PIC10F200)  {
 
 pub fn BTFSS(pic: &mut PIC10F200)  {
     // skip next instruction if bit b in register f is set
-    let instruction = pic.current_instruction;
+    let instruction = pic.instruction_register;
     let f = instruction.extract_f();
     let b = instruction.extract_b();
     let f_value = pic.data_memory.read(f);
@@ -250,7 +250,7 @@ pub fn GOTO(pic: &mut PIC10F200)  {
     // Set the program counter PC to 
     // the 9-bit address specified by the instruction
     // at k using instruction.extract_k_goto()
-    let instruction = pic.current_instruction;
+    let instruction = pic.instruction_register;
     let k = instruction.extract_k_goto();
     pic.program_counter = k; //TODO: make sure that program counter does not increment at the end of the cycle
 }
@@ -259,7 +259,7 @@ pub fn CALL(pic: &mut PIC10F200)  {
     //push PC + 1 onto stack and GOTO k
     pic.program_memory.push(pic.program_counter + u9::new(1));
     //mask out bit 8
-    pic.current_instruction.instruction_raw = pic.current_instruction.instruction_raw & u12::new(0xEFF);
+    pic.instruction_register.instruction_raw = pic.instruction_register.instruction_raw & u12::new(0xEFF);
     GOTO(pic); //TODO: may not be able to use GOTO as that itself is a two cycle instruction
 }
 
@@ -274,7 +274,7 @@ pub fn RETLW(pic: &mut PIC10F200)  {
 
 pub fn MOVLW(pic: &mut PIC10F200)  {
     // W <- k
-    let instruction = pic.current_instruction;
+    let instruction = pic.instruction_register;
     let k: u8 = instruction.extract_k();
 
     pic.w_register = k;
@@ -282,7 +282,7 @@ pub fn MOVLW(pic: &mut PIC10F200)  {
 
 pub fn IORLW(pic: &mut PIC10F200)  {
     // W <- W OR k
-    let instruction = pic.current_instruction;
+    let instruction = pic.instruction_register;
     let k: u8 = instruction.extract_k();
     let result = pic.w_register | k;
 
@@ -291,7 +291,7 @@ pub fn IORLW(pic: &mut PIC10F200)  {
 
 pub fn ANDLW(pic: &mut PIC10F200)  {
     // W <- W AND k
-    let instruction = pic.current_instruction;
+    let instruction = pic.instruction_register;
     let k: u8 = instruction.extract_k();
     let result = pic.w_register & k;
 
@@ -300,7 +300,7 @@ pub fn ANDLW(pic: &mut PIC10F200)  {
 
 pub fn XORLW(pic: &mut PIC10F200)  {
     // W <- W XOR k
-    let instruction = pic.current_instruction;
+    let instruction = pic.instruction_register;
     let k: u8 = instruction.extract_k();
     let result = pic.w_register ^ k;
 
