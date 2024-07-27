@@ -244,6 +244,7 @@ pub fn BTFSS(pic: &mut PIC10F200)  {
 
 /* Control Transfers - TWO CYCLE INSTRUCTIONS, since the fetch instructino is "flushed" from the pipeline */
 //TODO: implement two cycle instructions
+//Any instruction which writes to the program counter, except GOTO, will force a 0 to be written to the 9th bit
 
 pub fn GOTO(pic: &mut PIC10F200)  {
     // Set the program counter PC to 

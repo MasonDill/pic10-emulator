@@ -4,14 +4,30 @@ use crate::{nbitnumber::{
 }, data_memory::RegisterFile, program_memory::ProgramMemory, data_memory::SpecialPurposeRegisters, instructions::*};
 
 #[derive(Clone, Copy)]
-pub enum PICCategory {
+
+//Highest level wrapper of the MCU
+pub struct PIC10F200 {
+    pub data_memory : RegisterFile,
+    pub program_memory : ProgramMemory,
+    pub program_counter : u9,
+    pub current_instruction : PICInstruction,
+    pub w_register : u8,
+}
+
+pub enum PIC10F2Types {
+    PIC10F200,
+    PIC10F202,
+    PIC10F204,
+    PIC10F206,
+}
+pub enum PICInstructionType {
     Miscellaneous,
     BitOperation,
     ControlTransfer,
     OperationsWithW,
     ALUOperation,
 }
-pub enum PICMnemonic {
+pub enum PICInstructionMnemonic {
     // Miscellaneous
     NOP, CLRWDT, OPTION, RETFIE, 
     SLEEP, MOVLB, TRIS, RETURN,
@@ -36,15 +52,6 @@ pub enum PICMnemonic {
     UND
 }
 
-
-trait TuringMachine {
-    fn fetch(&mut self);
-    fn execute(&mut self);
-    fn tick(&mut self);
-    fn decode_mnemonic(&mut self);
-    fn power_on(&mut self);
-}
-
 trait Programmable {
     fn program_chip(&mut self, new_program: [u12; 0x200]);
 }
@@ -56,28 +63,22 @@ impl Programmable for PIC10F200 {
     }
 }
 
+trait TuringMachine {
+    fn power_on_initialize(&mut self);
+    fn fetch(&mut self);
+    fn execute(&mut self);
+    fn tick(&mut self);
+    fn decode_mnemonic(&mut self);
+}
+
 impl TuringMachine for PIC10F200 {
-    fn power_on(&mut self) {
+    fn power_on_initialize(&mut self) {
         //data sheet page 18
         self.data_memory.write(u5::new(SpecialPurposeRegisters::PCL as u16), 0xFF);
         self.data_memory.write(u5::new(SpecialPurposeRegisters::STATUS as u16), 0x18);
         self.data_memory.write(u5::new(SpecialPurposeRegisters::FSR as u16), 0x70);
         self.data_memory.write(u5::new(SpecialPurposeRegisters::OSCCAL as u16), 0xFE);
         self.data_memory.write(u5::new(SpecialPurposeRegisters::CMCON0 as u16), 0xFF);
-    }
-
-    fn fetch(&mut self) {
-        //this is just a temprory variable, not the actual PC register
-        let PCL = self.data_memory.read(u5::new(SpecialPurposeRegisters::PCL as u16));
-
-        //translate PC to u9 (we might want to sign extend it for off chip memory
-        self.program_counter = u9::new(PCL as u16);
-        self.current_instruction = PICInstruction::from_u12(self.program_memory.fetch(self.program_counter));
-    }
-
-    fn execute(&mut self) {
-        //start the pipeline
-        self.decode_mnemonic();
     }
 
     fn tick(&mut self) {
@@ -89,10 +90,24 @@ impl TuringMachine for PIC10F200 {
         self.fetch();
     }
 
+    fn fetch(&mut self) {
+        //Read the program counter
+        let PCL = self.data_memory.read(u5::new(SpecialPurposeRegisters::PCL as u16));
+        self.program_counter = u9::new(PCL as u16); //translate PC to u9 (we might want to sign extend it for off chip memory
+
+        
+        self.current_instruction = PICInstruction::from_u12(self.program_memory.fetch(self.program_counter));
+    }
+
+    fn execute(&mut self) {
+        //start the pipeline
+        self.decode_mnemonic();
+    }
+
     fn decode_mnemonic(&mut self)
     {
         match self.current_instruction.instruction_category {
-            PICCategory::ALUOperation => {
+            PICInstructionType::ALUOperation => {
                 match (self.current_instruction.instruction_raw.as_u16() & 0x3C0) >> 6 {
                     //4 bit opcode 9 downto 6, right shifted by 6
                     0x000 => MOVWF(self),
@@ -114,7 +129,7 @@ impl TuringMachine for PIC10F200 {
                     _ => HALT(self) //There should not be any undefined ALU opearations
                 }
             }
-            PICCategory::BitOperation => {
+            PICInstructionType::BitOperation => {
                 match self.current_instruction.instruction_raw.as_u16() & (0x300) {
                     //2 bit op code bits 9 & 8
                     0x000 => BCF(self),
@@ -124,7 +139,7 @@ impl TuringMachine for PIC10F200 {
                     _ => HALT(self),
                 }
             }
-            PICCategory::ControlTransfer => {
+            PICInstructionType::ControlTransfer => {
                 match self.current_instruction.instruction_raw.as_u16() & (0x300) {
                     //2 bit opcode bits 9 & 8
                     0x000 => RETLW(self),
@@ -133,7 +148,7 @@ impl TuringMachine for PIC10F200 {
                     _ => HALT(self)
                 }
             }
-            PICCategory::Miscellaneous => {
+            PICInstructionType::Miscellaneous => {
                 //5 bit opcode 4 downto 0
                 match self.current_instruction.instruction_raw.as_u16() & (0x01F) {
                     0x000 => NOP(self),
@@ -144,7 +159,7 @@ impl TuringMachine for PIC10F200 {
                     _ => HALT(self),
                 }
             }
-            PICCategory::OperationsWithW => {
+            PICInstructionType::OperationsWithW => {
                 match self.current_instruction.instruction_raw.as_u16() & (0x300) {
                     //2 bit opcode 9 & 8
                     0x000 => MOVLW(self),
@@ -158,22 +173,11 @@ impl TuringMachine for PIC10F200 {
     }
 }
 
-//Highest level wrapper of the MCU
-pub struct PIC10F200 {
-    pub data_memory : RegisterFile,
-    pub program_memory : ProgramMemory,
-    pub program_counter : u9,
-    pub current_instruction : PICInstruction,
-    pub w_register : u8,
-}
-
-
-
 #[derive(Clone, Copy)]
 pub struct PICInstruction  {
     pub instruction_raw: u12,
     //instruction: Option<PICMnemonic>,
-    pub instruction_category: PICCategory,
+    pub instruction_category: PICInstructionType,
 }
 
 
@@ -186,19 +190,19 @@ impl PICInstruction {
     }
 
 
-    fn decode_category(instruction: u12) -> PICCategory {
+    fn decode_category(instruction: u12) -> PICInstructionType {
         match instruction.as_u16() & (0xC00) {
             // misc & alu -> 0000 | 0000 | 0000
             // bit  -> 0100 | 0000 | 0000
             // control 1000 | 0000 | 0000
             // operations = 1100 | 0000 | 0000
             0x000 => match instruction.as_u16() & (0x3E0) {
-                0x000 => PICCategory::Miscellaneous, 
-                _ => PICCategory::ALUOperation,
+                0x000 => PICInstructionType::Miscellaneous, 
+                _ => PICInstructionType::ALUOperation,
             }
-            0x400 => PICCategory::BitOperation,
-            0x800 => PICCategory::ControlTransfer,
-            0xC00  => PICCategory::OperationsWithW,
+            0x400 => PICInstructionType::BitOperation,
+            0x800 => PICInstructionType::ControlTransfer,
+            0xC00  => PICInstructionType::OperationsWithW,
             _ => panic!("TODO")
         }
     }
