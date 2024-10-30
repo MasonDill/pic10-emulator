@@ -6,12 +6,12 @@ use crate::{data_memory::{RegisterFile, SpecialPurposeRegisters}, instructions::
 
 //Highest level wrapper of the MCU
 pub struct PIC10F200 {
-    pub data_memory : RegisterFile,
-    pub program_memory : ProgramMemory,
-    pub program_counter : u9,
-    pub instruction_register : PICInstruction,
-    pub w_register : u8,
-    pub io_pins : [bool; 3]
+    data_memory : RegisterFile,
+    program_memory : ProgramMemory,
+    program_counter : u9,
+    instruction_register : PICInstruction,
+    w_register : u8,
+    io_pins : [bool; 3]
 }
 
 pub enum PIC10F2Types {
@@ -94,7 +94,6 @@ impl PipelinedTuringMachine for PIC10F200 {
             //the first cycle should skip execution stage, AKA when PCL == RESET_VECTOR
             return;
         }
-
         self.execute(); 
     }
 
@@ -110,8 +109,16 @@ impl PipelinedTuringMachine for PIC10F200 {
     }
 
     fn execute(&mut self) {
-        //start the pipeline
-        self.decode_mnemonic();
+        // Switch on Q
+
+        //Decode & read data during Q2
+        self.decode_mnemonic(); // return function pointer to execute & data register to read from
+        // Read data during Q2, data is a static variable
+
+        //Execute during Q3 
+        //Execute the instruction and get a tuple of the data to write to memory (register, value)
+        
+        //Write data during Q4
     }
 
     // decoded during Q2
@@ -197,7 +204,6 @@ impl PICInstruction {
             instruction_category: PICInstruction::decode_category(instruction),
         }
     }
-
 
     fn decode_category(instruction: u12) -> PICInstructionType {
         match instruction.as_u16() & (0xC00) {

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test {
     // Import the module we want to test
-    use crate::pic::PIC10F200;
+    use crate::pic::{self, PIC10F200};
     use crate::data_memory::RegisterFile;
     use crate::program_memory::ProgramMemory;
     use crate::nbitnumber::u9;
@@ -14,15 +14,19 @@ mod test {
             program_memory: ProgramMemory::new(),
             program_counter: u9::new(0),
             instruction_register: PICInstruction::new(),
-            w_register: 0x00,
+            w_register,
+            io_pins: todo!(),
         };
 
-        pic.power_on_initialize();
+        let program = [0x000; 0x200];
+        pic.program_chip(program);
         
-        // let clock:bool= false;
+        pic.power_on_initialize();
+    }
 
-        while true() {
-            pic.tick();
-        }
+    // program the PIC with a program
+    fn test_program_chip(pic: &mut PIC10F200) {
+
+        
     }
 }

@@ -52,7 +52,7 @@ fn store_wf(pic: &mut PIC10F200, result: u8){
     }
 }
 
-fn update_Z(pic: &mut PIC10F200, result: u8){
+fn update_Z(pic: &mut PIC10F200, result: u8){ 
     let is_zero:NBitNumber<1> = NBitNumber::new((result == 0) as u16);
     pic.data_memory.set_flag(NBitNumber::new(Status_Masks::Z as u16) , is_zero);
 }
