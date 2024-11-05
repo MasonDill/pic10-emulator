@@ -10,3 +10,5 @@ Emulator for PIC10F200/202/204/206 ISA with accurate pipeline flow and instructi
    ```bash
    cargo build --release
    ```
+
+## Usage
