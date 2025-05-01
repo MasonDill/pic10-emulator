@@ -9,6 +9,7 @@ use crate::nbitnumber::{u12, u9, self, NumberOperations};
 
 pub const RESET_VECTOR: u12 = nbitnumber::NBitNumber { value: 0x00 };
 
+#[derive(Clone)]
 pub struct ProgramMemory {
     memory: [u12; 0x200],
     stack: [u9; 0x002]

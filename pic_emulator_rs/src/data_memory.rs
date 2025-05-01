@@ -74,7 +74,7 @@ pub enum CMCON0_Masks {
     COUT = 0x07, // comparator output
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct RegisterFile {
     registers: [Register; REG_FILE_SIZE as usize]
 }

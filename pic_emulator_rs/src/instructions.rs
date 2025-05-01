@@ -24,8 +24,8 @@ pub fn OPTION(pic: &mut PIC10F200)  {
 
 pub fn SLEEP(pic: &mut PIC10F200)  {
     todo!();
-    pic.data_memory.set_flag(NBitNumber::new(Status_Masks::TO as u16) , NBitNumber::new(1));
-    pic.data_memory.set_flag(NBitNumber::new(Status_Masks::PD as u16) , NBitNumber::new(0));
+    //pic.data_memory.set_flag(NBitNumber::new(Status_Masks::TO as u16) , NBitNumber::new(1));
+    //pic.data_memory.set_flag(NBitNumber::new(Status_Masks::PD as u16) , NBitNumber::new(0));
     //also set the prescaler to 0 in option register
 }
 
@@ -194,7 +194,7 @@ pub fn INCFSZ(pic: &mut PIC10F200)  {
 
 pub fn BCF(pic: &mut PIC10F200)  {
     // clear bit b in register f
-    let instruction = pic.instruction_register;
+    let instruction = &pic.instruction_register;
     let f = instruction.extract_f();
     let b = instruction.extract_b();
     let f_value = pic.data_memory.read(f);
@@ -205,7 +205,7 @@ pub fn BCF(pic: &mut PIC10F200)  {
 
 pub fn BSF(pic: &mut PIC10F200)  {
     // set bit b in register f
-    let instruction = pic.instruction_register;
+    let instruction = &pic.instruction_register;
     let f = instruction.extract_f();
     let b = instruction.extract_b();
     let f_value = pic.data_memory.read(f);
@@ -216,7 +216,7 @@ pub fn BSF(pic: &mut PIC10F200)  {
 
 pub fn BTFSC(pic: &mut PIC10F200)  {
     // skip next instruction if bit b in register f is clear
-    let instruction = pic.instruction_register;
+    let instruction = &pic.instruction_register;
     let f = instruction.extract_f();
     let b = instruction.extract_b();
     let f_value = pic.data_memory.read(f);
@@ -230,7 +230,7 @@ pub fn BTFSC(pic: &mut PIC10F200)  {
 
 pub fn BTFSS(pic: &mut PIC10F200)  {
     // skip next instruction if bit b in register f is set
-    let instruction = pic.instruction_register;
+    let instruction = &pic.instruction_register;
     let f = instruction.extract_f();
     let b = instruction.extract_b();
     let f_value = pic.data_memory.read(f);
@@ -250,7 +250,7 @@ pub fn GOTO(pic: &mut PIC10F200)  {
     // Set the program counter PC to 
     // the 9-bit address specified by the instruction
     // at k using instruction.extract_k_goto()
-    let instruction = pic.instruction_register;
+    let instruction = &pic.instruction_register;
     let k = instruction.extract_k_goto();
     pic.program_counter = k; //TODO: make sure that program counter does not increment at the end of the cycle
 }
@@ -274,7 +274,7 @@ pub fn RETLW(pic: &mut PIC10F200)  {
 
 pub fn MOVLW(pic: &mut PIC10F200)  {
     // W <- k
-    let instruction = pic.instruction_register;
+    let instruction = &pic.instruction_register;
     let k: u8 = instruction.extract_k();
 
     pic.w_register = k;
@@ -282,7 +282,7 @@ pub fn MOVLW(pic: &mut PIC10F200)  {
 
 pub fn IORLW(pic: &mut PIC10F200)  {
     // W <- W OR k
-    let instruction = pic.instruction_register;
+    let instruction = &pic.instruction_register;
     let k: u8 = instruction.extract_k();
     let result = pic.w_register | k;
 
@@ -291,7 +291,7 @@ pub fn IORLW(pic: &mut PIC10F200)  {
 
 pub fn ANDLW(pic: &mut PIC10F200)  {
     // W <- W AND k
-    let instruction = pic.instruction_register;
+    let instruction = &pic.instruction_register;
     let k: u8 = instruction.extract_k();
     let result = pic.w_register & k;
 
@@ -300,7 +300,7 @@ pub fn ANDLW(pic: &mut PIC10F200)  {
 
 pub fn XORLW(pic: &mut PIC10F200)  {
     // W <- W XOR k
-    let instruction = pic.instruction_register;
+    let instruction = &pic.instruction_register;
     let k: u8 = instruction.extract_k();
     let result = pic.w_register ^ k;
 

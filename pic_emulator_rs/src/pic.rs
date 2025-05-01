@@ -2,16 +2,16 @@ use crate::{data_memory::{RegisterFile, SpecialPurposeRegisters}, instructions::
     u12, u2, u3, u5, u9, NBitNumber, NumberOperations
 }, program_memory::{ProgramMemory, RESET_VECTOR}};
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 
 //Highest level wrapper of the MCU
 pub struct PIC10F200 {
-    data_memory : RegisterFile,
-    program_memory : ProgramMemory,
-    program_counter : u9,
-    instruction_register : PICInstruction,
-    w_register : u8,
-    io_pins : [bool; 3]
+    pub data_memory : RegisterFile,
+    pub program_memory : ProgramMemory,
+    pub program_counter : u9,
+    pub instruction_register : PICInstruction,
+    pub w_register : u8,
+    pub io_pins : [bool; 3]
 }
 
 pub enum PIC10F2Types {
@@ -20,6 +20,8 @@ pub enum PIC10F2Types {
     PIC10F204,
     PIC10F206,
 }
+
+#[derive(Clone)]
 pub enum PICInstructionType {
     Miscellaneous,
     BitOperation,
@@ -51,7 +53,7 @@ pub enum PICInstructionMnemonic {
     UND
 }
 
-trait Programmable {
+pub trait Programmable {
     fn program_chip(&mut self, new_program: [u12; 0x200]);
 }
 impl Programmable for PIC10F200 {
@@ -61,7 +63,7 @@ impl Programmable for PIC10F200 {
     }
 }
 
-trait PipelinedTuringMachine {
+pub trait PipelinedTuringMachine {
     fn power_on_initialize(&mut self);
     fn fetch(&mut self);
     fn execute(&mut self);
@@ -87,13 +89,16 @@ impl PipelinedTuringMachine for PIC10F200 {
         self.data_memory.write(u5::new(SpecialPurposeRegisters::CMCON0 as u16), 0xFF);
     }
 
+    // Public interface for the Turing Machine
+    // TODO: make flash() and tick() the only public methods
     fn tick(&mut self) {
         self.fetch();
 
-        if (self.program_counter) == RESET_VECTOR {
+        if self.program_counter.compare_lower_bits(&RESET_VECTOR) {
             //the first cycle should skip execution stage, AKA when PCL == RESET_VECTOR
             return;
         }
+        
         self.execute(); 
     }
 
@@ -191,7 +196,7 @@ impl PipelinedTuringMachine for PIC10F200 {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct PICInstruction  {
     pub instruction_raw: u12,
     //instruction: Option<PICMnemonic>,
