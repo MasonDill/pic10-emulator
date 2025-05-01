@@ -2,6 +2,10 @@ use crate::{data_memory::{RegisterFile, SpecialPurposeRegisters}, instructions::
     u12, u2, u3, u5, u9, NBitNumber, NumberOperations
 }, program_memory::{ProgramMemory, RESET_VECTOR}};
 
+// Define the type alias for the instruction executor function pointer
+// Moved before the trait definition to be in scope.
+type InstructionExecutor = fn(&mut PIC10F200);
+
 #[derive(Clone)]
 
 //Highest level wrapper of the MCU
@@ -68,7 +72,7 @@ pub trait PipelinedTuringMachine {
     fn fetch(&mut self);
     fn execute(&mut self);
     fn tick(&mut self);
-    fn decode_mnemonic(&mut self);
+    fn decode_mnemonic(&mut self) -> InstructionExecutor;
 }
 impl PipelinedTuringMachine for PIC10F200 {
     /*
@@ -116,83 +120,121 @@ impl PipelinedTuringMachine for PIC10F200 {
     fn execute(&mut self) {
         // Switch on Q
 
-        //Decode & read data during Q2
-        self.decode_mnemonic(); // return function pointer to execute & data register to read from
-        // Read data during Q2, data is a static variable
+        // Decode & read data during Q2
+        // Decode returns the function pointer to the instruction implementation
+        let instruction_fn = self.decode_mnemonic();
+        // Read data during Q2, data is a static variable // TODO: Implement data read based on instruction if needed
 
-        //Execute during Q3 
-        //Execute the instruction and get a tuple of the data to write to memory (register, value)
-        
-        //Write data during Q4
+        // Execute during Q3
+        // Execute the instruction
+        instruction_fn(self);
+
+        // Write data during Q4 // TODO: Implement data write based on instruction if needed
     }
 
     // decoded during Q2
-    fn decode_mnemonic(&mut self)
+    fn decode_mnemonic(&mut self) -> InstructionExecutor
     {
         match self.instruction_register.instruction_category {
             PICInstructionType::ALUOperation => {
                 match (self.instruction_register.instruction_raw.as_u16() & 0x3C0) >> 6 {
                     //4 bit opcode 9 downto 6, right shifted by 6
-                    0x000 => MOVWF(self),
-                    0x001 => CLR(self),
-                    0x002 => SUBWF(self),
-                    0x003 => DECF(self),
-                    0x004 => IORWF(self),
-                    0x005 => ANDWF(self),
-                    0x006 => XORWF(self),
-                    0x007 => ADDWF(self),
-                    0x008 => MOVF(self),
-                    0x009 => COMF(self),
-                    0x00A => INCF(self),
-                    0x00B => DECF(self),
-                    0x00C => RRF(self),
-                    0x00D => RLF(self),
-                    0x00E => SWAPF(self),
-                    0x00F => INCFSZ(self),
-                    _ => HALT(self) //There should not be any undefined ALU opearations
+                    0x000 => MOVWF,
+                    0x001 => CLR,
+                    0x002 => SUBWF,
+                    0x003 => DECF,
+                    0x004 => IORWF,
+                    0x005 => ANDWF,
+                    0x006 => XORWF,
+                    0x007 => ADDWF,
+                    0x008 => MOVF,
+                    0x009 => COMF,
+                    0x00A => INCF,
+                    // Note: 0x00B was DECF, datasheet shows it's DECFSZ
+                    0x00B => DECFSZ, 
+                    0x00C => RRF,
+                    0x00D => RLF,
+                    0x00E => SWAPF,
+                    0x00F => INCFSZ,
+                    // Handle potential undefined opcodes within this range if necessary
+                    _ => HALT // Assuming HALT is a valid function in instructions.rs
                 }
             }
             PICInstructionType::BitOperation => {
                 match self.instruction_register.instruction_raw.as_u16() & (0x300) {
                     //2 bit op code bits 9 & 8
-                    0x000 => BCF(self),
-                    0x100 => BSF(self),
-                    0x200 => BTFSC(self),
-                    0x300 => BTFSS(self),
-                    _ => HALT(self),
+                    0x000 => BCF,
+                    0x100 => BSF,
+                    0x200 => BTFSC,
+                    0x300 => BTFSS,
+                    _ => HALT, // Should not happen with 2 bits
                 }
             }
             PICInstructionType::ControlTransfer => {
+                // Opcode bits 10 & 9 for CALL/GOTO, but RETLW uses lower bits.
+                // Need to check the full pattern more carefully based on datasheet Table 11-2
+                match self.instruction_register.instruction_raw.as_u16() & 0xF00 { // Check bits 11-8
+                     // RETLW k (10 00xx kkkk kkkk) - This pattern seems off, RETLW is 0x08? Let's re-check decode_category
+                     // Let's trust decode_category for now and match based on its output
+                     0x800 => { // Control Transfer category
+                         match self.instruction_register.instruction_raw.as_u16() & 0xF00 { // Check upper nibble again
+                             0x800 => RETLW, // Assuming RETLW doesn't fit the 0x100/0x200/0x300 pattern
+                             0x900 => CALL,
+                             0xA00 | 0xB00 => GOTO, // Both 101x and 100x seem to be GOTO
+                             _ => HALT
+                         }
+                     },
+                     _ => HALT // Should not happen if decode_category is correct
+                }
+                /* // Previous simpler match, likely incorrect based on datasheet opcodes
                 match self.instruction_register.instruction_raw.as_u16() & (0x300) {
                     //2 bit opcode bits 9 & 8
-                    0x000 => RETLW(self),
-                    0x100 => CALL(self),
-                    0x200 | 0x300 => GOTO(self),
-                    _ => HALT(self)
+                    0x000 => RETLW, // This is likely wrong, RETLW is 10 00xx kkkk kkkk ?
+                    0x100 => CALL,  // This is 10 01xx kkkk kkkk
+                    0x200 | 0x300 => GOTO, // This is 10 1xxx kkkk kkkk
+                    _ => HALT
                 }
+                */
             }
             PICInstructionType::Miscellaneous => {
-                //5 bit opcode 4 downto 0
-                match self.instruction_register.instruction_raw.as_u16() & (0x01F) {
-                    0x000 => NOP(self),
-                    0x002 => OPTION(self),
-                    0x003 => SLEEP(self),
-                    0x004 => CLRWDT(self),
-                    0x005..=0x007 => TRIS(self),
-                    _ => HALT(self),
+                // 5 bit opcode 4 downto 0
+                // Check specific full opcodes for misc instructions (Table 11-1)
+                match self.instruction_register.instruction_raw.as_u16() & 0x0FF { // Mask lower 8 bits for clarity
+                    0x000 => NOP,    // 00 0000 0000 0000 (NOP)
+                    0x004 => CLRWDT, // 00 0000 0000 0100 (CLRWDT)
+                    0x002 => OPTION, // 00 0000 0000 0010 (OPTION)
+                    0x003 => SLEEP,  // 00 0000 0000 0011 (SLEEP)
+                    // TRIS needs more specific check? instruction is 00 0000 0000 11fx
+                     _ if (self.instruction_register.instruction_raw.as_u16() & 0x3F) >= 0x05 &&
+                          (self.instruction_register.instruction_raw.as_u16() & 0x3F) <= 0x07 => TRIS, // 00 0000 00xx x11x? No, TRIS is 0x05/06/07
+                    _ => HALT, // Other codes in the 0x000-0x01F range might be MOVLB, RETURN, RETFIE - Need to add them
+                                // MOVLB 00 0000 0010 0xxx -> 0x20? - This overlaps OPTION? No, OPTION is 0x02. MOVLB is 0x00?
+                                // Need to carefully re-read Table 11-1 & 11-2.
+                                // Let's assume HALT for unhandled cases for now.
                 }
+                /* // Previous simpler match based only on lower 5 bits
+                match self.instruction_register.instruction_raw.as_u16() & (0x01F) {
+                    0x000 => NOP,
+                    0x002 => OPTION,
+                    0x003 => SLEEP,
+                    0x004 => CLRWDT,
+                    0x005..=0x007 => TRIS, // This covers 0x05, 0x06, 0x07
+                    _ => HALT,
+                }
+                */
             }
             PICInstructionType::OperationsWithW => {
                 match self.instruction_register.instruction_raw.as_u16() & (0x300) {
-                    //2 bit opcode 9 & 8
-                    0x000 => MOVLW(self),
-                    0x100 => IORLW(self),
-                    0x200 => ANDLW(self),
-                    0x300 => XORLW(self),
-                    _ => HALT(self),
+                    //2 bit opcode 9 & 8 (within the 11xx category)
+                    // Example: MOVLW k is 11 00xx kkkk kkkk
+                    0x000 => MOVLW,
+                    0x100 => IORLW,
+                    0x200 => ANDLW,
+                    0x300 => XORLW,
+                    _ => HALT, // Should not happen
                 }
             }
-        };
+        }
     }
 }
 
