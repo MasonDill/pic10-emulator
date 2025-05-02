@@ -1,4 +1,4 @@
-use crate::nbitnumber::{u12, u9, NumberOperations, NBitNumber};
+use common::nbitnumber::{u12, u9, NumberOperations, NBitNumber};
 use crate::data_memory::Status_Masks;
 use crate::pic::PIC10F200;
 

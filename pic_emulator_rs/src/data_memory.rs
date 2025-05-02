@@ -1,5 +1,5 @@
-use crate::nbitnumber::{NumberOperations, NBitNumber};
-use crate::nbitnumber::{u3, u5, u7, u9, u12};
+use common::nbitnumber::{NumberOperations, NBitNumber};
+use common::nbitnumber::{u3, u5, u7, u9, u12};
 
 //7 special purpose registers
 //16 general purpose registers

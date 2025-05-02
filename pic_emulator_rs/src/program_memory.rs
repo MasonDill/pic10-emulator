@@ -5,7 +5,7 @@
 
 //PC is 9-bits, lower 8 are stored in PCL register
 
-use crate::nbitnumber::{u12, u9, self, NumberOperations};
+use common::nbitnumber::{u12, u9, self, NumberOperations};
 
 pub const RESET_VECTOR: u9 = nbitnumber::NBitNumber { value: 0x00 }; // see data sheet page 18 section 4.7.1
 pub const PC_POR_MOVLW_OSCCAL_ADDRESS: u9 = nbitnumber::NBitNumber { value: 0xFF }; // See data sheet page 11 section 4.1
