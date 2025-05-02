@@ -9,6 +9,15 @@ pub const REG_FILE_SIZE : u8 = 0x20;
 pub const REG_FILE_MAX_ADDR : u8 =  0x1F;
 pub const REG_FILE_GP_OFFSET : u8 = 0x10;
 
+// Power-On Reset Values (Datasheet Page 14 Table 4-1)
+pub const PCL_POR_VALUE: u8 = 0xFF; // Program counter low
+pub const STATUS_POR_VALUE: u8 = 0x18; // GPWUF=1, CWUF=1, !TO=1, !PD=1, Z=X, DC=X, C=X, Bit 5 reserved
+pub const FSR_POR_VALUE: u8 = 0x70;    // Upper 3 bits are 1, lower 5 bits are undefined
+pub const OSCCAL_POR_VALUE: u8 = 0xFE; // Factory calibrated, highest value (ignoring FOSC4 bit)
+pub const CMCON0_POR_VALUE: u8 = 0xFF; // All 1
+pub const TRIS_POR_VALUE: u8 = 0x0F; // Upper 4 are undefined, lower 4 are 1
+pub const OPTION_POR_VALUE: u8 = 0xFF; // All 1
+
 
 #[derive(Clone, Copy, Default)]
 struct Register {
@@ -21,15 +30,16 @@ impl Register {
     }
 }
 
-pub enum SpecialPurposeRegisters {
-    INDF = 0x00, //Indirect reference
+// See page 13 Figure 4-3
+pub enum  SpecialPurposeRegisters {
+    INDF = 0x00, //Indirect reference (NOT A PHYSICAL REGISTER)
     TMR0, //Timer: 8-bit RTC
     PCL, //Program counter low
     STATUS , //Status register
     FSR, // pointer
     OSCCAL, //oscillator calibration
     GPIO, //general purpose input/output (pins) 
-    CMCON0 = 0x07, // comparator control
+    CMCON0 = 0x07, // comparator control, 204/206 only
     // 0x008 -> 0x0F is Unimplemented
     // 0x10 -> 0x1F is General Purpose Registers
 }
@@ -76,14 +86,18 @@ pub enum CMCON0_Masks {
 
 #[derive(Default, Clone)]
 pub struct RegisterFile {
-    registers: [Register; REG_FILE_SIZE as usize]
+    registers: [Register; REG_FILE_SIZE as usize],
+    pub option_register : u8, // not addressable, dedicated instruction to write
+    pub tris_register : u8, // not addressable, dedicated instruction to write
 }
 
 impl RegisterFile {
 
     pub fn new() -> Self {
         RegisterFile {
-            registers: [Register::new(); REG_FILE_SIZE as usize]
+            registers: [Register::new(); REG_FILE_SIZE as usize],
+            option_register: OPTION_POR_VALUE,
+            tris_register: TRIS_POR_VALUE,
         }
     }
 
