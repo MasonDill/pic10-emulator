@@ -18,7 +18,9 @@ pub trait NumberOperations<const N: usize> {
 }
 
 impl<const N: usize> NBitNumber<N> {
-    pub fn new(value: u16) -> Self {
+    pub const BITS: usize = N;
+
+    pub const fn new(value: u16) -> Self {
         validate_bit_width::<N>();
         NBitNumber { value: value & ((1 << N) - 1) }
     }
@@ -30,6 +32,12 @@ impl<const N: usize> NBitNumber<N> {
     /// Compares the lower bits of two NBitNumbers of potentially different sizes
     /// The comparison is done using the minimum of the two bit widths
     pub fn compare_lower_bits<const M: usize>(&self, other: &NBitNumber<M>) -> bool {
+        let min_bits = std::cmp::min(N, M);
+        let mask = (1 << min_bits) - 1;
+        (self.value & mask) == (other.value & mask)
+    }
+
+    pub fn compare_upper_bits<const M: usize>(&self, other: &NBitNumber<M>) -> bool {
         let min_bits = std::cmp::min(N, M);
         let mask = (1 << min_bits) - 1;
         (self.value & mask) == (other.value & mask)
@@ -74,3 +82,22 @@ pub type u5 = NBitNumber<5>;
 pub type u9 = NBitNumber<9>;
 pub type u3 = NBitNumber<3>;
 pub type u2 = NBitNumber<2>;
+
+pub enum NBit {
+    N1(NBitNumber<1>),
+    N2(NBitNumber<2>),
+    N3(NBitNumber<3>),
+    N4(NBitNumber<4>),
+    N5(NBitNumber<5>),
+    N6(NBitNumber<6>),
+    N7(NBitNumber<7>),
+    N8(NBitNumber<8>),
+    N9(NBitNumber<9>),
+    N10(NBitNumber<10>),
+    N11(NBitNumber<11>),
+    N12(NBitNumber<12>),
+    N13(NBitNumber<13>),
+    N14(NBitNumber<14>),
+    N15(NBitNumber<15>),
+    N16(NBitNumber<16>),
+}
