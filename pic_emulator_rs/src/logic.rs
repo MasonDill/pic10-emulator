@@ -306,3 +306,20 @@ pub fn XORLW(pic: &mut PIC10F200)  {
 
     pic.w_register = result;
 }
+
+pub fn CLRF(pic: &mut PIC10F200)  {
+    // clear the file register f
+    pic.data_memory.write(pic.instruction_register.extract_f(), 0);
+}
+
+pub fn CLRW(pic: &mut PIC10F200)  {
+    // clear the working register W
+    pic.w_register = 0;
+}
+
+pub fn UND(pic: &mut PIC10F200)  {
+    // this behavior is undefined...
+    // let's just panic for now to debug the decoder
+    // TODO: log an error instead
+    panic!("Undefined instruction encountered");
+}

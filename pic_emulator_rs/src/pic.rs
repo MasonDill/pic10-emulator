@@ -91,54 +91,46 @@ impl PipelinedTuringMachine for PIC10F200 {
     // Maps a mnemonic to its corresponding execution function
     fn decode_mnemonic(mnemonic: PICInstructionMnemonic) -> InstructionExecutor {
         match mnemonic {
-            // Miscellaneous
-            PICInstructionMnemonic::NOP => NOP,
-            PICInstructionMnemonic::CLRWDT => CLRWDT,
-            PICInstructionMnemonic::OPTION => OPTION,
-            PICInstructionMnemonic::SLEEP => SLEEP,
-            PICInstructionMnemonic::TRIS => TRIS,
-
-            // ALU Operation
-            PICInstructionMnemonic::MOVWF => MOVWF,
-            PICInstructionMnemonic::CLR => CLR,
-            PICInstructionMnemonic::SUBWF => SUBWF,
-            PICInstructionMnemonic::DECF => DECF,
-            PICInstructionMnemonic::IORWF => IORWF,
-            PICInstructionMnemonic::ANDWF => ANDWF,
-            PICInstructionMnemonic::XORWF => XORWF,
             PICInstructionMnemonic::ADDWF => ADDWF,
-            PICInstructionMnemonic::MOVF => MOVF,
+            PICInstructionMnemonic::ANDWF => ANDWF,
+            PICInstructionMnemonic::CLRF => CLRF,
+            PICInstructionMnemonic::CLRW => CLRW,
             PICInstructionMnemonic::COMF => COMF,
-            PICInstructionMnemonic::INCF => INCF,
+            PICInstructionMnemonic::DECF => DECF,
             PICInstructionMnemonic::DECFSZ => DECFSZ,
-            PICInstructionMnemonic::RRF => RRF,
-            PICInstructionMnemonic::RLF => RLF,
-            PICInstructionMnemonic::SWAPF => SWAPF,
+            PICInstructionMnemonic::INCF => INCF,
             PICInstructionMnemonic::INCFSZ => INCFSZ,
-
-            // Bit Operation
+            PICInstructionMnemonic::IORWF => IORWF,
+            PICInstructionMnemonic::MOVF => MOVF,
+            PICInstructionMnemonic::MOVWF => MOVWF,
+            PICInstructionMnemonic::NOP => NOP,
+            PICInstructionMnemonic::RLF => RLF,
+            PICInstructionMnemonic::RRF => RRF,
+            PICInstructionMnemonic::SUBWF => SUBWF,
+            PICInstructionMnemonic::SWAPF => SWAPF,
+            PICInstructionMnemonic::XORWF => XORWF,
+            
+            // Bit-oriented
             PICInstructionMnemonic::BCF => BCF,
             PICInstructionMnemonic::BSF => BSF,
             PICInstructionMnemonic::BTFSC => BTFSC,
             PICInstructionMnemonic::BTFSS => BTFSS,
-
-            // Control Transfer
-            PICInstructionMnemonic::GOTO => GOTO,
-            PICInstructionMnemonic::CALL => CALL,
-            PICInstructionMnemonic::RETLW => RETLW,
-
-            // Operations with W
-            PICInstructionMnemonic::MOVLW => MOVLW,
-            PICInstructionMnemonic::IORLW => IORLW,
+            
+            // Literal and control operations
             PICInstructionMnemonic::ANDLW => ANDLW,
+            PICInstructionMnemonic::CALL => CALL,
+            PICInstructionMnemonic::CLRWDT => CLRWDT,
+            PICInstructionMnemonic::GOTO => GOTO,
+            PICInstructionMnemonic::IORLW => IORLW,
+            PICInstructionMnemonic::MOVLW => MOVLW,
+            PICInstructionMnemonic::OPTION => OPTION,
+            PICInstructionMnemonic::RETLW => RETLW,
+            PICInstructionMnemonic::SLEEP => SLEEP,
+            PICInstructionMnemonic::TRIS => TRIS,
             PICInstructionMnemonic::XORLW => XORLW,
 
-            PICInstructionMnemonic::UND => HALT, // Handle undefined instructions
-
-            // remove these
-            PICInstructionMnemonic::RETFIE => todo!(),
-            PICInstructionMnemonic::MOVLB => todo!(),
-            PICInstructionMnemonic::RETURN => todo!(),
+            // Undefined instruction
+            PICInstructionMnemonic::UND => UND,
         }
     }
 }
